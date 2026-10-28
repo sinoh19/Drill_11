@@ -1,10 +1,11 @@
 from pico2d import (
     load_image, get_canvas_width,
-    SDL_KEYDOWN, SDL_KEYUP, SDLK_LEFT, SDLK_RIGHT, SDLK_LSHIFT, SDLK_RSHIFT,
+    SDL_KEYDOWN, SDL_KEYUP, SDLK_LEFT, SDLK_RIGHT, SDLK_a, SDLK_LSHIFT,
+    SDLK_RSHIFT,
 )
 from time import monotonic
 from math import pi
-from transitions import Machine
+from transitions import Machine, State
 
 
 IDLE_FRAMES = 8
@@ -16,6 +17,12 @@ REST_DELAY = 5.0  # Seconds without keyboard input while IDLE.
 DASH_SPEED = 800  # Pixels per second: 120 pixels per dash.
 DASH_DURATION = 0.15
 DASH_COOLDOWN = 0.5  # Measured from the start of a dash.
+
+
+class AutoRun(State):
+    def __init__(self):
+        super().__init__('AUTO_RUN', on_enter='enter_auto_run')
+
 
 class Boy:
     def __init__(self):
@@ -38,6 +45,7 @@ class Boy:
                 {'name': 'RUN_RIGHT', 'on_enter': 'enter_run_right'},
                 {'name': 'REST', 'on_enter': 'enter_rest'},
                 {'name': 'DASH', 'on_enter': 'enter_dash'},
+                AutoRun(),
             ],
             initial='IDLE',
             auto_transitions=False,
@@ -50,8 +58,13 @@ class Boy:
             trigger='tick', source=['RUN_LEFT', 'RUN_RIGHT'],
             dest=None, after='update_run'
         )
+        self.state_machine.add_transition(
+            trigger='tick', source='AUTO_RUN', dest=None,
+            after='update_auto_run'
+        )
         self.state_machine.add_transition('run_left', '*', 'RUN_LEFT')
         self.state_machine.add_transition('run_right', '*', 'RUN_RIGHT')
+        self.state_machine.add_transition('auto_run', '*', 'AUTO_RUN')
         self.state_machine.add_transition('stop', '*', 'IDLE')
         self.state_machine.add_transition('sleep', 'IDLE', 'REST')
         self.state_machine.add_transition('wake', 'REST', 'IDLE')
@@ -73,6 +86,10 @@ class Boy:
             self.wake()
         if self.state == 'IDLE':
             self.idle_since = monotonic()
+        if event.type == SDL_KEYDOWN and event.key == SDLK_a:
+            if self.state != 'AUTO_RUN':
+                self.auto_run()
+            return
         if event.key in (SDLK_LSHIFT, SDLK_RSHIFT):
             if event.type == SDL_KEYUP:
                 self.held_shift_keys.discard(event.key)
@@ -129,6 +146,9 @@ class Boy:
         self.frame = 0
         self.face_dir = 1
 
+    def enter_auto_run(self):
+        self.frame = 0
+
     def update(self):
         now = monotonic()
         delta_time = now - self.last_update
@@ -144,6 +164,17 @@ class Boy:
         self.frame = (self.frame + RUN_FPS * delta_time) % RUN_FRAMES
         self.x += self.face_dir * RUN_SPEED * delta_time
         self.x = max(25, min(get_canvas_width() - 25, self.x))
+
+    def update_auto_run(self, delta_time):
+        self.frame = (self.frame + RUN_FPS * delta_time) % RUN_FRAMES
+        self.x += self.face_dir * RUN_SPEED * delta_time
+        right_edge = get_canvas_width() - 25
+        if self.x <= 25:
+            self.x = 25
+            self.face_dir = 1
+        elif self.x >= right_edge:
+            self.x = right_edge
+            self.face_dir = -1
 
     def update_dash(self, delta_time):
         # Limit travel even if a frame takes longer than the entire dash.
@@ -183,7 +214,7 @@ class Boy:
 
     def draw_run(self):
         # Running rows: left at y=0, right at y=100.
-        row = 100 if self.state == 'RUN_RIGHT' else 0
+        row = 100 if self.face_dir == 1 else 0
         self.image.clip_draw(int(self.frame) * 100, row, 100, 100, self.x, self.y)
 
     def draw_idle(self):
