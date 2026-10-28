@@ -168,12 +168,16 @@ class Boy:
         self.x = max(25, min(get_canvas_width() - 25, self.x))
 
     def update_auto_run(self, delta_time):
-        if monotonic() - self.auto_run_started_at >= AUTO_RUN_DURATION:
+        elapsed = monotonic() - self.auto_run_started_at
+        if elapsed >= AUTO_RUN_DURATION:
             self.stop()
             return
 
+        speed = RUN_SPEED + (DASH_SPEED - RUN_SPEED) * (
+            elapsed / AUTO_RUN_DURATION
+        )
         self.frame = (self.frame + RUN_FPS * delta_time) % RUN_FRAMES
-        self.x += self.face_dir * RUN_SPEED * delta_time
+        self.x += self.face_dir * speed * delta_time
         right_edge = get_canvas_width() - 25
         if self.x <= 25:
             self.x = 25
