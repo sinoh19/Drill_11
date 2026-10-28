@@ -106,6 +106,8 @@ class Boy:
         if event.type == SDL_KEYDOWN:
             # Ignore repeated keydown events while a key is held.
             if event.key in self.held_keys:
+                if self.state == 'AUTO_RUN':
+                    self.sync_movement()
                 return
             self.held_keys.append(event.key)
         elif event.key in self.held_keys:
