@@ -15,6 +15,7 @@ RUN_FPS = 12
 RUN_SPEED = 200  # Pixels per second.
 REST_DELAY = 5.0  # Seconds without keyboard input while IDLE.
 AUTO_RUN_DURATION = 5.0
+AUTO_RUN_MAX_SCALE = 2.0
 DASH_SPEED = 800  # Pixels per second: 120 pixels per dash.
 DASH_DURATION = 0.15
 DASH_COOLDOWN = 0.5  # Measured from the start of a dash.
@@ -203,8 +204,22 @@ class Boy:
             self.draw_rest()
         elif self.state == 'DASH':
             self.draw_dash()
+        elif self.state == 'AUTO_RUN':
+            self.draw_auto_run()
         else:
             self.draw_run()
+
+    def draw_auto_run(self):
+        elapsed = monotonic() - self.auto_run_started_at
+        scale = 1.0 + (AUTO_RUN_MAX_SCALE - 1.0) * min(
+            elapsed / AUTO_RUN_DURATION, 1.0
+        )
+        row = 100 if self.face_dir == 1 else 0
+        size = 100 * scale
+        self.image.clip_draw(
+            int(self.frame) * 100, row, 100, 100,
+            self.x, self.y + (size - 100) / 2, size, size
+        )
 
     def draw_dash(self):
         row = 100 if self.face_dir == 1 else 0
