@@ -14,6 +14,7 @@ RUN_FRAMES = 8
 RUN_FPS = 12
 RUN_SPEED = 200  # Pixels per second.
 REST_DELAY = 5.0  # Seconds without keyboard input while IDLE.
+AUTO_RUN_DURATION = 5.0
 DASH_SPEED = 800  # Pixels per second: 120 pixels per dash.
 DASH_DURATION = 0.15
 DASH_COOLDOWN = 0.5  # Measured from the start of a dash.
@@ -148,6 +149,7 @@ class Boy:
 
     def enter_auto_run(self):
         self.frame = 0
+        self.auto_run_started_at = monotonic()
 
     def update(self):
         now = monotonic()
@@ -166,6 +168,10 @@ class Boy:
         self.x = max(25, min(get_canvas_width() - 25, self.x))
 
     def update_auto_run(self, delta_time):
+        if monotonic() - self.auto_run_started_at >= AUTO_RUN_DURATION:
+            self.stop()
+            return
+
         self.frame = (self.frame + RUN_FPS * delta_time) % RUN_FRAMES
         self.x += self.face_dir * RUN_SPEED * delta_time
         right_edge = get_canvas_width() - 25
